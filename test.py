@@ -1,5 +1,5 @@
 import OntologyAnalyzer
 
 owl = OntologyAnalyzer.Owl("./ontologies/Photography.owl")
-print(owl.check_hierarchy())
+print(owl.get_comment_stats())
 pass
