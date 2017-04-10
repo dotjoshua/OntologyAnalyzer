@@ -1,5 +1,5 @@
 import OntologyAnalyzer
 
 owl = OntologyAnalyzer.Owl("./ontologies/Photography.owl")
-print(owl.get_comment_stats())
-pass
+for class_name in owl.classes:
+    print(class_name)

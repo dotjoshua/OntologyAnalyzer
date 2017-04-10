@@ -5,21 +5,23 @@ import numpy
 
 class Owl:
     def __init__(self, filename):
-        self.nodes = {}
+        self.classes = {}
         self.xml = ET.parse(filename)
 
         for item in self.xml.getroot():
             if item.tag.strip().endswith("Class"):
-                owl_class = OwlClass(item)
-                self.nodes[owl_class.owl_id] = owl_class
+                owl_class = OwlClass(item, self)
+                if owl_class.owl_id in self.classes:
+                    raise OwlException("Duplicate class definition found: {}".format(owl_class.owl_id))
+                self.classes[owl_class.owl_id] = owl_class
 
-        for owl_id, owl_node in self.nodes.items():
+        for owl_id, owl_node in self.classes.items():
             for i, val in enumerate(owl_node.parents):
-                owl_node.parents[i] = self.nodes[val]
+                owl_node.parents[i] = self.classes[val]
 
     def check_hierarchy(self):
         cycles = []
-        for owl_id, owl_node in self.nodes.items():
+        for owl_id, owl_node in self.classes.items():
             if type(owl_node) == OwlClass:
                 path = owl_node.has_ancestor(owl_node)
                 if path:
@@ -73,40 +75,45 @@ class Owl:
                 pass
         return comments
 
+    def __str__(self):
+        return "<Owl Classes: {}, Cyclical Classes: {}>".format(len(self.classes), len(self.check_hierarchy()))
+
 
 class OwlNode:
-    def __init__(self, owl_id):
+    def __init__(self, owl_id, owl):
         self.owl_id = owl_id
         self.visiting = False
+        self.owl = owl
 
     def __eq__(self, target):
         return self.owl_id == target.owl_id
 
 
 class OwlComment(OwlNode):
-    def __init__(self, xml_node, depth=0, parent=None):
+    def __init__(self, xml_node, owl, depth=0, parent=None):
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value)
+                OwlNode.__init__(self, value, owl)
                 break
         self.text = xml_node.text
         self.depth = depth
         self.parent = parent
 
     def __repr__(self):
-        return "<OwlComment:{}:{}{}>".format(self.depth, self.text[:50].replace("\n", "\\n").strip(), "..." if len(self.text) > 50 else "")
+        return "<OwlComment Depth: {}, Contents: {}{}>".format(self.depth, self.text[:50].replace("\n", "\\n").strip(),
+                                                               "..." if len(self.text) > 50 else "")
 
     def __len__(self):
         return len(self.text)
 
 
 class OwlClass(OwlNode):
-    def __init__(self, xml_node):
+    def __init__(self, xml_node, owl):
         self.parents = []
 
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value)
+                OwlNode.__init__(self, value, owl)
                 break
 
         for item in xml_node:
@@ -116,14 +123,24 @@ class OwlClass(OwlNode):
                         self.parents.append(value)
 
     def has_ancestor(self, target):
+        self.locate_ancestors(target, lambda x, y: x == y)
+
+    def locate_ancestors(self, target, equiv_function):
         self.visiting = True
         result = []
-        if target in self.parents:
-            result = [self.owl_id]
+        for parent in self.parents:
+            if equiv_function(target, parent):
+                result = [self.owl_id]
+                break
         for parent in self.parents:
             if not parent.visiting:
-                path = parent.has_ancestor(target)
+                path = parent.locate_ancestors(target, equiv_function)
                 if path:
                     result += path
         self.visiting = False
         return result
+
+
+class OwlException(Exception):
+    def __init__(self, *args):
+        super(OwlException, self).__init__(*args)
