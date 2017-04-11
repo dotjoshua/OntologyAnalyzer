@@ -6,12 +6,14 @@ import numpy
 class Owl:
     def __init__(self, filename):
         self.classes = {}
+        self.datatypes = {}
         self.object_properties = {}
         self.datatype_properties = {}
         self.xml = ET.parse(filename)
 
         for item in self.xml.getroot():
             for node_type, node_class, collection in [("Class", OwlClass, self.classes),
+                                                      ("Datatype", OwlDatatype, self.datatypes),
                                                       ("ObjectProperty", OwlObjectProperty, self.object_properties),
                                                       ("DatatypeProperty", OwlDatatypeProperty, self.datatype_properties)]:
                 if item.tag.strip().endswith(node_type):
@@ -82,7 +84,8 @@ class Owl:
         return comments
 
     def __str__(self):
-        return "<Owl Classes: {}, ObjectProperties: {}, DatatypeProperties: {}, Cyclical Classes: {}>".format(len(self.classes), len(self.object_properties), len(self.datatype_properties), len(self.check_hierarchy()))
+        return "<Owl Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, Cyclical Classes: {}>".format(
+            len(self.classes), len(self.datatypes), len(self.object_properties), len(self.datatype_properties), len(self.check_hierarchy()))
 
 
 class OwlNode:
@@ -145,6 +148,15 @@ class OwlClass(OwlNode):
                     result += path
         self.visiting = False
         return result
+
+
+class OwlDatatype(OwlNode):
+    def __init__(self, xml_node, owl):
+        self.parents = []
+
+        for key, value in xml_node.attrib.items():
+            if key.strip().endswith("about"):
+                OwlNode.__init__(self, value, owl)
 
 
 class OwlObjectProperty(OwlNode):
