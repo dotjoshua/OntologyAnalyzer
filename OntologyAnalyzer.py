@@ -40,7 +40,8 @@ class Owl:
     def check_properties(self):
         for datatype_property in self.datatype_properties:
             if datatype_property in self.annotation_properties:
-                raise OwlException("{} cannot be both a DatatypeProperty and an AnnotationProperty.".format(datatype_property))
+                raise OwlException("{} cannot be both a DatatypeProperty and an AnnotationProperty."
+                                   .format(datatype_property))
 
     def check_hierarchy(self):
         for owl_id, owl_node in self.classes.items():
@@ -113,9 +114,9 @@ class Owl:
 
     def __str__(self):
         return "<Owl: {}, Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, " \
-               "AnnotationProperties: {}>".format(self.filename, len(self.classes), len(self.datatypes),
-                                                  len(self.object_properties), len(self.datatype_properties),
-                                                  len(self.annotation_properties))
+               "AnnotationProperties: {}>"\
+            .format(self.filename, len(self.classes), len(self.datatypes), len(self.object_properties),
+                    len(self.datatype_properties), len(self.annotation_properties))
 
 
 class OwlNode:
