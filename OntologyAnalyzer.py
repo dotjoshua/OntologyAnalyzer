@@ -115,7 +115,7 @@ class Owl:
     def __str__(self):
         return "<Owl: {}, Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, " \
                "AnnotationProperties: {}>"\
-            .format(self.filename, len(self.classes), len(self.datatypes), len(self.object_properties),
+            .format(self.base, len(self.classes), len(self.datatypes), len(self.object_properties),
                     len(self.datatype_properties), len(self.annotation_properties))
 
 
