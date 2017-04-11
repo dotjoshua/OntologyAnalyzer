@@ -6,14 +6,20 @@ import numpy
 class Owl:
     def __init__(self, filename):
         self.classes = {}
+        self.object_properties = {}
+        self.datatype_properties = {}
         self.xml = ET.parse(filename)
 
         for item in self.xml.getroot():
-            if item.tag.strip().endswith("Class"):
-                owl_class = OwlClass(item, self)
-                if owl_class.owl_id in self.classes:
-                    raise OwlException("Duplicate class definition found: {}".format(owl_class.owl_id))
-                self.classes[owl_class.owl_id] = owl_class
+            for node_type, node_class, collection in [("Class", OwlClass, self.classes),
+                                                      ("ObjectProperty", OwlObjectProperty, self.object_properties),
+                                                      ("DatatypeProperty", OwlDatatypeProperty, self.datatype_properties)]:
+                if item.tag.strip().endswith(node_type):
+                    instance = node_class(item, self)
+                    if instance.owl_id in collection:
+                        raise OwlException("Duplicate {} definition found: {}".format(node_type, instance.owl_id))
+                    collection[instance.owl_id] = instance
+                    break
 
         for owl_id, owl_node in self.classes.items():
             for i, val in enumerate(owl_node.parents):
@@ -76,7 +82,7 @@ class Owl:
         return comments
 
     def __str__(self):
-        return "<Owl Classes: {}, Cyclical Classes: {}>".format(len(self.classes), len(self.check_hierarchy()))
+        return "<Owl Classes: {}, ObjectProperties: {}, DatatypeProperties: {}, Cyclical Classes: {}>".format(len(self.classes), len(self.object_properties), len(self.datatype_properties), len(self.check_hierarchy()))
 
 
 class OwlNode:
@@ -139,6 +145,26 @@ class OwlClass(OwlNode):
                     result += path
         self.visiting = False
         return result
+
+
+class OwlObjectProperty(OwlNode):
+    def __init__(self, xml_node, owl):
+        self.parents = []
+
+        for key, value in xml_node.attrib.items():
+            if key.strip().endswith("about"):
+                OwlNode.__init__(self, value, owl)
+                break
+
+
+class OwlDatatypeProperty(OwlNode):
+    def __init__(self, xml_node, owl):
+        self.parents = []
+
+        for key, value in xml_node.attrib.items():
+            if key.strip().endswith("about"):
+                OwlNode.__init__(self, value, owl)
+                break
 
 
 class OwlException(Exception):
