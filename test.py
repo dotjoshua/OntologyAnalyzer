@@ -1,4 +1,5 @@
 import OntologyAnalyzer
 
-owl = OntologyAnalyzer.Owl("./ontologies/Photography.owl")
-print(owl)
+for ontology_name in ["Photography", "marinetlo", "combined subject and object rich ontologies - Copy"]:
+    owl = OntologyAnalyzer.Owl("./ontologies/{}.owl".format(ontology_name))
+    print(owl)

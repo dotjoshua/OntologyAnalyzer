@@ -5,20 +5,22 @@ import numpy
 
 class Owl:
     def __init__(self, filename):
+        self.filename = filename
         self.classes = {}
         self.datatypes = {}
         self.object_properties = {}
         self.datatype_properties = {}
         self.annotation_properties = {}
-        self.xml = ET.parse(filename)
+        self.xml = ET.parse(self.filename)
         self.base = list(self.xml.getroot().attrib.values())[0]
 
+        possible_types = [("Class", OwlClass, self.classes), ("Datatype", OwlDatatype, self.datatypes),
+                          ("AnnotationProperty", OwlAnnotationProperty, self.annotation_properties),
+                          ("ObjectProperty", OwlObjectProperty, self.object_properties),
+                          ("DatatypeProperty", OwlDatatypeProperty, self.datatype_properties)]
+
         for item in self.xml.getroot():
-            for node_type, node_class, collection in [("Class", OwlClass, self.classes),
-                                                      ("Datatype", OwlDatatype, self.datatypes),
-                                                      ("AnnotationProperty", OwlAnnotationProperty, self.annotation_properties),
-                                                      ("ObjectProperty", OwlObjectProperty, self.object_properties),
-                                                      ("DatatypeProperty", OwlDatatypeProperty, self.datatype_properties)]:
+            for node_type, node_class, collection in possible_types:
                 if item.tag.strip().endswith(node_type):
                     instance = node_class(item, self)
                     if instance.owl_id in collection:
@@ -110,8 +112,10 @@ class Owl:
         return comments
 
     def __str__(self):
-        return "<Owl Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, AnnotationProperties: {}>".format(
-            len(self.classes), len(self.datatypes), len(self.object_properties), len(self.datatype_properties), len(self.annotation_properties))
+        return "<Owl: {}, Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, " \
+               "AnnotationProperties: {}>".format(self.filename, len(self.classes), len(self.datatypes),
+                                                  len(self.object_properties), len(self.datatype_properties),
+                                                  len(self.annotation_properties))
 
 
 class OwlNode:
