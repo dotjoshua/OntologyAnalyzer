@@ -9,11 +9,14 @@ class Owl:
         self.datatypes = {}
         self.object_properties = {}
         self.datatype_properties = {}
+        self.annotation_properties = {}
         self.xml = ET.parse(filename)
+        self.base = list(self.xml.getroot().attrib.values())[0]
 
         for item in self.xml.getroot():
             for node_type, node_class, collection in [("Class", OwlClass, self.classes),
                                                       ("Datatype", OwlDatatype, self.datatypes),
+                                                      ("AnnotationProperty", OwlAnnotationProperty, self.annotation_properties),
                                                       ("ObjectProperty", OwlObjectProperty, self.object_properties),
                                                       ("DatatypeProperty", OwlDatatypeProperty, self.datatype_properties)]:
                 if item.tag.strip().endswith(node_type):
@@ -27,14 +30,37 @@ class Owl:
             for i, val in enumerate(owl_node.parents):
                 owl_node.parents[i] = self.classes[val]
 
+        self.comment_stats = self.get_comment_stats()
+        self.check_properties()
+        self.check_hierarchy()
+        self.check_references()
+
+    def check_properties(self):
+        for datatype_property in self.datatype_properties:
+            if datatype_property in self.annotation_properties:
+                raise OwlException("{} cannot be both a DatatypeProperty and an AnnotationProperty.".format(datatype_property))
+
     def check_hierarchy(self):
-        cycles = []
         for owl_id, owl_node in self.classes.items():
             if type(owl_node) == OwlClass:
-                path = owl_node.has_ancestor(owl_node)
+                path = owl_node.path_to_ancestor(owl_node)
                 if path:
-                    cycles += path
-        return cycles
+                    raise OwlException("Inheritance cycle exists: {}".format(path))
+
+    def check_references(self):
+        for owl_class in self.classes.values():
+            nodes = list(owl_class.xml_node.iter())
+            for node in nodes:
+                for attrib in node.attrib:
+                    if attrib.strip().endswith("resource") or attrib.strip().endswith("about"):
+                        value = node.attrib[attrib]
+                        if value.startswith(self.base) and value != self.base \
+                                and value not in self.classes \
+                                and value not in self.datatypes \
+                                and value not in self.object_properties\
+                                and value not in self.datatype_properties:
+                            print(self.base)
+                            raise OwlException("Unknown resource: {}".format(value))
 
     def get_comment_stats(self):
         comments = self.gather_comments()
@@ -46,7 +72,7 @@ class Owl:
         word_count = 0
         total_word_length = 0
         for comment in comments:
-            for word in re.split("( |\n|\t)+", comment.text):
+            for word in re.split("([ \n\t])+", comment.text):
                 word = re.sub("[^A-Za-z]", "", word).lower()
                 if not len(word):
                     continue
@@ -84,12 +110,13 @@ class Owl:
         return comments
 
     def __str__(self):
-        return "<Owl Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, Cyclical Classes: {}>".format(
-            len(self.classes), len(self.datatypes), len(self.object_properties), len(self.datatype_properties), len(self.check_hierarchy()))
+        return "<Owl Classes: {}, Datatypes: {}, ObjectProperties: {}, DatatypeProperties: {}, AnnotationProperties: {}>".format(
+            len(self.classes), len(self.datatypes), len(self.object_properties), len(self.datatype_properties), len(self.annotation_properties))
 
 
 class OwlNode:
-    def __init__(self, owl_id, owl):
+    def __init__(self, xml_node, owl_id, owl):
+        self.xml_node = xml_node
         self.owl_id = owl_id
         self.visiting = False
         self.owl = owl
@@ -102,7 +129,7 @@ class OwlComment(OwlNode):
     def __init__(self, xml_node, owl, depth=0, parent=None):
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value, owl)
+                OwlNode.__init__(self, xml_node, value, owl)
                 break
         self.text = xml_node.text
         self.depth = depth
@@ -122,7 +149,7 @@ class OwlClass(OwlNode):
 
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value, owl)
+                OwlNode.__init__(self, xml_node, value, owl)
                 break
 
         for item in xml_node:
@@ -131,7 +158,7 @@ class OwlClass(OwlNode):
                     if key.endswith("resource"):
                         self.parents.append(value)
 
-    def has_ancestor(self, target):
+    def path_to_ancestor(self, target):
         self.locate_ancestors(target, lambda x, y: x == y)
 
     def locate_ancestors(self, target, equiv_function):
@@ -156,7 +183,7 @@ class OwlDatatype(OwlNode):
 
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value, owl)
+                OwlNode.__init__(self, xml_node, value, owl)
 
 
 class OwlObjectProperty(OwlNode):
@@ -165,7 +192,7 @@ class OwlObjectProperty(OwlNode):
 
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value, owl)
+                OwlNode.__init__(self, xml_node, value, owl)
                 break
 
 
@@ -175,7 +202,17 @@ class OwlDatatypeProperty(OwlNode):
 
         for key, value in xml_node.attrib.items():
             if key.strip().endswith("about"):
-                OwlNode.__init__(self, value, owl)
+                OwlNode.__init__(self, xml_node, value, owl)
+                break
+
+
+class OwlAnnotationProperty(OwlNode):
+    def __init__(self, xml_node, owl):
+        self.parents = []
+
+        for key, value in xml_node.attrib.items():
+            if key.strip().endswith("about"):
+                OwlNode.__init__(self, xml_node, value, owl)
                 break
 
 
